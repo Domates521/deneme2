@@ -1,0 +1,570 @@
+/* ========== EXAM PAGE - SINAV ALMA SAYFASI ========== */
+
+/* Root değişkenler */
+:root {
+  --exam-bg: #f5f6fa;
+  --exam-card-bg: #ffffff;
+  --exam-border: #e5e7ef;
+  
+  --exam-primary: #5d3bea;
+  --exam-primary-hover: #4a2bc7;
+  --exam-success: #2ecc71;
+  --exam-warning: #f39c12;
+  --exam-danger: #e74c3c;
+  
+  --exam-text-main: #1a1a2e;
+  --exam-text-dim: #6b6b84;
+  --exam-text-light: #9a9ab6;
+  
+  --exam-radius-lg: 1rem;
+  --exam-radius-md: 0.75rem;
+  --exam-radius-sm: 0.5rem;
+}
+
+/* ========== SAYFA LAYOUT ========== */
+
+.exam-page {
+  min-height: 100vh;
+  background: var(--exam-bg);
+  padding: 2rem;
+}
+
+/* ========== LOADING VE ERROR STATES ========== */
+
+.exam-page-loading,
+.exam-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--exam-bg);
+}
+
+.exam-page-loading .spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid var(--exam-border);
+  border-top-color: var(--exam-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.exam-page-loading p,
+.exam-page-error p {
+  margin-top: 1rem;
+  font-size: 1rem;
+  color: var(--exam-text-dim);
+}
+
+.exam-page-error button {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--exam-primary);
+  color: white;
+  border: none;
+  border-radius: var(--exam-radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.exam-page-error button:hover {
+  background: var(--exam-primary-hover);
+}
+
+/* ========== HEADER ========== */
+
+.exam-header {
+  background: var(--exam-card-bg);
+  border: 1px solid var(--exam-border);
+  border-radius: var(--exam-radius-lg);
+  padding: 1.5rem 2rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.exam-header-left h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--exam-text-main);
+  margin: 0 0 0.5rem 0;
+}
+
+.exam-course {
+  font-size: 0.9rem;
+  color: var(--exam-text-dim);
+  font-weight: 500;
+  margin: 0;
+}
+
+.exam-header-right {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+/* ========== ZAMANLAYıCı ========== */
+
+.exam-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--exam-success);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--exam-radius-md);
+  font-size: 1.1rem;
+  font-weight: 700;
+  box-shadow: 0 8px 16px rgba(46, 204, 113, 0.3);
+  transition: all 0.3s ease;
+}
+
+.exam-timer.warning {
+  background: var(--exam-danger);
+  animation: pulse 1s infinite;
+  box-shadow: 0 8px 16px rgba(231, 76, 60, 0.4);
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.timer-icon {
+  font-size: 1.3rem;
+}
+
+.timer-text {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.05em;
+}
+
+.exam-progress-text {
+  font-size: 0.9rem;
+  color: var(--exam-text-dim);
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  background: var(--exam-bg);
+  border-radius: var(--exam-radius-sm);
+}
+
+/* ========== İLERLEME BARI ========== */
+
+.exam-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--exam-border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.exam-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--exam-primary), var(--exam-success));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(93, 59, 234, 0.5);
+}
+
+/* ========== İÇERİK LAYOUT ========== */
+
+.exam-content {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 2rem;
+  align-items: start;
+}
+
+/* ========== SORU KARTI ========== */
+
+.question-card {
+  background: var(--exam-card-bg);
+  border: 1px solid var(--exam-border);
+  border-radius: var(--exam-radius-lg);
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--exam-border);
+}
+
+.question-number {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--exam-primary);
+  background: rgba(93, 59, 234, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: var(--exam-radius-sm);
+}
+
+.question-type {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--exam-text-dim);
+  background: var(--exam-bg);
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--exam-radius-sm);
+}
+
+.question-text {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: var(--exam-text-main);
+  font-weight: 500;
+  margin-bottom: 2rem;
+  min-height: 60px;
+}
+
+/* ========== SEÇENEKLER ========== */
+
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--exam-bg);
+  border: 2px solid var(--exam-border);
+  border-radius: var(--exam-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.option-item:hover {
+  background: rgba(93, 59, 234, 0.05);
+  border-color: var(--exam-primary);
+  transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(93, 59, 234, 0.15);
+}
+
+.option-item.selected {
+  background: rgba(93, 59, 234, 0.1);
+  border-color: var(--exam-primary);
+  box-shadow: 0 4px 12px rgba(93, 59, 234, 0.2);
+}
+
+.option-letter {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: 2px solid var(--exam-border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--exam-text-main);
+  transition: all 0.2s ease;
+}
+
+.option-item.selected .option-letter {
+  background: var(--exam-primary);
+  border-color: var(--exam-primary);
+  color: white;
+}
+
+.option-text {
+  flex: 1;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--exam-text-main);
+  font-weight: 500;
+}
+
+.option-check {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: var(--exam-success);
+}
+
+/* ========== NAVİGASYON BUTONLARI ========== */
+
+.exam-navigation {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.nav-btn {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: var(--exam-radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.prev-btn {
+  background: var(--exam-bg);
+  color: var(--exam-text-main);
+  border: 2px solid var(--exam-border);
+}
+
+.prev-btn:hover:not(:disabled) {
+  background: white;
+  border-color: var(--exam-primary);
+  color: var(--exam-primary);
+  transform: translateX(-5px);
+}
+
+.next-btn {
+  background: var(--exam-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(93, 59, 234, 0.3);
+}
+
+.next-btn:hover {
+  background: var(--exam-primary-hover);
+  transform: translateX(5px);
+  box-shadow: 0 6px 16px rgba(93, 59, 234, 0.4);
+}
+
+.submit-btn {
+  background: var(--exam-success);
+  color: white;
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #27ae60;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(46, 204, 113, 0.4);
+}
+
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ========== SORU HARİTASI ========== */
+
+.question-map {
+  background: var(--exam-card-bg);
+  border: 1px solid var(--exam-border);
+  border-radius: var(--exam-radius-lg);
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 2rem;
+}
+
+.question-map h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--exam-text-main);
+  margin: 0 0 1rem 0;
+}
+
+.question-map-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.question-map-item {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--exam-bg);
+  border: 2px solid var(--exam-border);
+  border-radius: var(--exam-radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--exam-text-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.question-map-item:hover {
+  background: white;
+  border-color: var(--exam-primary);
+  color: var(--exam-primary);
+  transform: scale(1.1);
+}
+
+.question-map-item.current {
+  background: var(--exam-primary);
+  border-color: var(--exam-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(93, 59, 234, 0.3);
+}
+
+.question-map-item.answered {
+  background: rgba(46, 204, 113, 0.1);
+  border-color: var(--exam-success);
+  color: var(--exam-success);
+}
+
+.question-map-item.answered.current {
+  background: var(--exam-success);
+  border-color: var(--exam-success);
+  color: white;
+}
+
+/* ========== LEGEND ========== */
+
+.question-map-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--exam-border);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--exam-text-dim);
+}
+
+.legend-box {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 2px solid var(--exam-border);
+  flex-shrink: 0;
+}
+
+.legend-box.answered {
+  background: rgba(46, 204, 113, 0.1);
+  border-color: var(--exam-success);
+}
+
+.legend-box.unanswered {
+  background: var(--exam-bg);
+  border-color: var(--exam-border);
+}
+
+/* ========== RESPONSIVE ========== */
+
+@media (max-width: 1200px) {
+  .exam-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .question-map {
+    position: relative;
+    top: 0;
+    order: -1;
+  }
+  
+  .question-map-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .exam-page {
+    padding: 1rem;
+  }
+  
+  .exam-header {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .exam-header-right {
+    width: 100%;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .exam-timer,
+  .exam-progress-text {
+    justify-content: center;
+  }
+  
+  .question-card {
+    padding: 1.5rem;
+  }
+  
+  .question-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .exam-navigation {
+    flex-direction: column;
+  }
+  
+  .question-map-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .exam-header-left h1 {
+    font-size: 1.2rem;
+  }
+  
+  .question-text {
+    font-size: 1rem;
+  }
+  
+  .option-item {
+    padding: 1rem;
+  }
+  
+  .option-letter {
+    width: 35px;
+    height: 35px;
+    font-size: 0.9rem;
+  }
+  
+  .option-text {
+    font-size: 0.95rem;
+  }
+  
+  .question-map-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+}
