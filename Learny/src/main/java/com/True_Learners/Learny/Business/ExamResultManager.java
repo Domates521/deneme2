@@ -1,4 +1,4 @@
-// Business/ExamResultManager.java
+// src/main/java/com/True_Learners/Learny/Business/ExamResultManager.java
 package com.True_Learners.Learny.Business;
 
 import java.util.List;
@@ -10,55 +10,60 @@ import org.springframework.transaction.annotation.Transactional;
 import com.True_Learners.Learny.DataAccess.IOgrenciSinavSonuclariDal;
 import com.True_Learners.Learny.Entities.ExamResult;
 
+/**
+ * EXAM RESULT MANAGER
+ * 
+ * Sınav sonuçları için business logic implementasyonu
+ */
 @Service
 public class ExamResultManager implements IExamResultService {
-
-    private final IOgrenciSinavSonuclariDal sonucDal;
-
+    
+    private final IOgrenciSinavSonuclariDal resultDal;
+    
     @Autowired
-    public ExamResultManager(IOgrenciSinavSonuclariDal sonucDal) {
-        this.sonucDal = sonucDal;
+    public ExamResultManager(IOgrenciSinavSonuclariDal resultDal) {
+        this.resultDal = resultDal;
     }
-
+    
     @Override
     @Transactional
     public List<ExamResult> getAll() {
-        return sonucDal.getAll();
+        return resultDal.getAll();
     }
-
+    
     @Override
     @Transactional
     public void add(ExamResult result) {
-        sonucDal.add(result);
+        resultDal.add(result);
     }
-
+    
     @Override
     @Transactional
     public void update(ExamResult result) {
-        sonucDal.update(result);
+        resultDal.update(result);
     }
-
+    
     @Override
     @Transactional
     public void delete(ExamResult result) {
-        sonucDal.delete(result);
+        resultDal.delete(result);
     }
-
+    
     @Override
     @Transactional
     public ExamResult getById(int id) {
-        return sonucDal.getById(id);
+        return resultDal.getById(id);
     }
-
+    
     @Override
     @Transactional
     public List<ExamResult> getByStudentId(int studentId) {
-        return sonucDal.getByStudentId(studentId);
+        return resultDal.getByStudentId(studentId);
     }
-
+    
     @Override
     @Transactional
     public List<ExamResult> getByExamId(int examId) {
-        return sonucDal.getByExamId(examId);
+        return resultDal.getByExamId(examId);
     }
 }

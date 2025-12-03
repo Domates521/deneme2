@@ -5,24 +5,16 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
 import { getEnrollmentsByStudent } from '../api/enrollmentApi';
+import { getExamsByCourse } from '../api/examApi';
+import { getResultsByStudent, getResultsByExam } from '../api/examResultApi';
 import './CoursesPage.css';
 
 /**
  * COURSES PAGE - MEVCUT DATABASE YAPISINA UYUMLU
  * 
- * Backend'den Gelen Veri Yapısı (Enrollment):
- * {
- *   id: 1,
- *   student: { id, userName, nameSurname, mail, role },
- *   course: {
- *     id: 1,
- *     code: "CS101",           // Derskodu
- *     name: "Spring Boot",     // Dersadi
- *     teacher: {               // Dersogretmenid
- *       id, userName, nameSurname, mail, role
- *     }
- *   }
- * }
+ * ÖZELLİKLER:
+ * - Öğrenci: Kayıtlı dersleri ve sınav sonuçlarını görür
+ * - Öğretmen: Dersleri ve sınav detaylarını (katılımcılar, notlar) görür
  */
 
 const CoursesPage = () => {
@@ -33,6 +25,14 @@ const CoursesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openCourseId, setOpenCourseId] = useState(null);
+  
+  // Sınav verileri
+  const [courseExams, setCourseExams] = useState({}); // { courseId: [exams] }
+  const [studentResults, setStudentResults] = useState([]); // Öğrencinin tüm sonuçları
+  const [examResults, setExamResults] = useState({}); // { examId: [results] } - Öğretmen için
+  const [loadingExams, setLoadingExams] = useState({});
+
+  const isTeacher = user?.role === 'Ogretmen';
 
   useEffect(() => {
     const fetchUserCourses = async () => {
@@ -45,32 +45,17 @@ const CoursesPage = () => {
           return;
         }
 
-        console.log('🔍 Fetching courses for user ID:', user.id);
-
         const enrollments = await getEnrollmentsByStudent(user.id);
-        
-        console.log('📦 Backend Response:', enrollments);
-        console.log('📊 Total enrollments:', enrollments?.length || 0);
-        
-        // Her enrollment'ı detaylı logla
-        if (enrollments && enrollments.length > 0) {
-          enrollments.forEach((enrollment, index) => {
-            console.log(`📚 Enrollment ${index + 1}:`, {
-              enrollmentId: enrollment.id,
-              courseId: enrollment.course?.id,
-              courseName: enrollment.course?.name,
-              courseCode: enrollment.course?.code,
-              teacherName: enrollment.course?.teacher?.nameSurname,
-              teacherEmail: enrollment.course?.teacher?.mail,
-            });
-          });
+        setCourses(enrollments || []);
+
+        // Öğrenci ise sonuçlarını da al
+        if (!isTeacher) {
+          const results = await getResultsByStudent(user.id);
+          setStudentResults(results || []);
         }
         
-        setCourses(enrollments || []);
-        
       } catch (err) {
-        console.error('❌ Dersler yüklenirken hata:', err);
-        console.error('❌ Error details:', err.response?.data || err.message);
+        console.error('Dersler yüklenirken hata:', err);
         setError('Dersler yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
       } finally {
         setLoading(false);
@@ -78,10 +63,42 @@ const CoursesPage = () => {
     };
 
     fetchUserCourses();
-  }, [user]);
+  }, [user, isTeacher]);
 
-  const toggleCourse = (courseId) => {
-    setOpenCourseId((prev) => (prev === courseId ? null : courseId));
+  const toggleCourse = async (courseId) => {
+    if (openCourseId === courseId) {
+      setOpenCourseId(null);
+      return;
+    }
+    
+    setOpenCourseId(courseId);
+    
+    // Sınavları yükle (eğer henüz yüklenmemişse)
+    if (!courseExams[courseId]) {
+      await loadCourseExams(courseId);
+    }
+  };
+
+  const loadCourseExams = async (courseId) => {
+    try {
+      setLoadingExams(prev => ({ ...prev, [courseId]: true }));
+      
+      const exams = await getExamsByCourse(courseId);
+      setCourseExams(prev => ({ ...prev, [courseId]: exams }));
+      
+      // Öğretmen için sınav sonuçlarını da yükle
+      if (isTeacher && exams.length > 0) {
+        for (const exam of exams) {
+          const results = await getResultsByExam(exam.id);
+          setExamResults(prev => ({ ...prev, [exam.id]: results }));
+        }
+      }
+      
+    } catch (err) {
+      console.error('Sınavlar yüklenirken hata:', err);
+    } finally {
+      setLoadingExams(prev => ({ ...prev, [courseId]: false }));
+    }
   };
 
   const joinExam = (examId) => {
@@ -102,14 +119,26 @@ const CoursesPage = () => {
     navigate(`/${page}`);
   };
 
+  // Öğrencinin bir sınavdaki sonucunu bul
+  const getStudentExamResult = (examId) => {
+    return studentResults.find(r => (r.exam?.id || r.examId) === examId);
+  };
+
+  // Tarihi formatla
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
   if (loading) {
     return (
       <div className="layout">
-        <Sidebar 
-          onNavigate={handleNavigate}
-          onLogout={handleLogout}
-          currentPage="courses"
-        />
+        <Sidebar onNavigate={handleNavigate} onLogout={handleLogout} currentPage="courses" />
         <main className="main-area">
           <Topbar user={user} onLogout={handleLogout} />
           <div style={{ 
@@ -130,11 +159,7 @@ const CoursesPage = () => {
   if (error) {
     return (
       <div className="layout">
-        <Sidebar 
-          onNavigate={handleNavigate}
-          onLogout={handleLogout}
-          currentPage="courses"
-        />
+        <Sidebar onNavigate={handleNavigate} onLogout={handleLogout} currentPage="courses" />
         <main className="main-area">
           <Topbar user={user} onLogout={handleLogout} />
           <div style={{ 
@@ -201,136 +226,153 @@ const CoursesPage = () => {
           )}
 
           {courses.map((enrollment) => {
-            // Backend'den gelen course objesi
             const course = enrollment?.course;
-            
-            // Course yoksa bu enrollment'ı atlayalım
-            if (!course) {
-              console.warn('⚠️ Course bilgisi yok:', enrollment);
-              return null;
-            }
+            if (!course) return null;
             
             const isOpen = openCourseId === course.id;
-
-            // Backend fieldlarından verileri çekiyoruz
-            // course.name = Dersadi (database'de)
-            // course.code = Derskodu (database'de)
-            // course.teacher = User objesi (Kullanicilar tablosundan)
-            
             const courseName = course.name || 'İsimsiz Ders';
             const courseCode = course.code || '-';
             const teacher = course.teacher;
             const teacherName = teacher?.nameSurname || 'Belirtilmemiş';
-            const teacherEmail = teacher?.mail || '-';
-            const teacherUsername = teacher?.userName || '-';
+            const exams = courseExams[course.id] || [];
+            const isLoadingExams = loadingExams[course.id];
 
             return (
               <article 
                 key={enrollment.id} 
                 className={`course-card ${isOpen ? 'open' : ''}`}
               >
-                <header className="course-header">
-                  <div className="course-main-info">
-                    <div className="course-icon">
-                      {courseName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="course-title-area">
-                      <h2 className="course-title">{courseName}</h2>
-                      <p className="course-subtitle">
-                        {courseCode} • {teacherName}
-                      </p>
-                    </div>
+                {/* Kart Üst Kısmı */}
+                <div className="course-top">
+                  <div className="course-thumb">
+                    <span>{courseCode.substring(0, 2)}</span>
                   </div>
 
-                  <div className="course-badge-row">
-                    <div className="course-badge badge-ongoing">
-                      📖 Aktif
+                  <div className="course-info">
+                    <div className="course-title">{courseName}</div>
+                    <div className="course-meta">
+                      <span className="meta-item">
+                        <span className="icon">📚</span> {courseCode}
+                      </span>
+                      <span className="meta-item">
+                        <span className="icon">👤</span> {teacherName}
+                      </span>
                     </div>
                   </div>
 
                   <button
                     className="course-toggle-btn"
-                    type="button"
                     onClick={() => toggleCourse(course.id)}
                   >
-                    <span>Detaylar</span>
-                    <svg
-                      className="chevron"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
+                    <span>{isOpen ? 'Kapat' : 'Detaylar'}</span>
+                    <svg className="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polyline points="6 9 12 15 18 9" />
                     </svg>
                   </button>
-                </header>
+                </div>
 
+                {/* Detaylar */}
                 {isOpen && (
                   <section className="course-details">
                     <div className="details-grid">
-                      
-                      {/* DERS BİLGİLERİ */}
-                      <div className="detail-box" style={{ gridColumn: '1 / -1' }}>
+                      {/* Ders Bilgileri */}
+                      <div className="detail-box">
                         <div className="detail-head">
                           <span>📋 Ders Bilgileri</span>
                         </div>
                         <div className="info-list">
                           <div className="info-row">
-                            <div className="info-row-label">Ders Adı</div>
-                            <div className="info-row-value">{courseName}</div>
-                          </div>
-                          <div className="info-row">
                             <div className="info-row-label">Ders Kodu</div>
                             <div className="info-row-value">{courseCode}</div>
+                          </div>
+                          <div className="info-row">
+                            <div className="info-row-label">Ders Adı</div>
+                            <div className="info-row-value">{courseName}</div>
                           </div>
                           <div className="info-row">
                             <div className="info-row-label">Eğitmen</div>
                             <div className="info-row-value">{teacherName}</div>
                           </div>
                           <div className="info-row">
-                            <div className="info-row-label">Eğitmen Email</div>
-                            <div className="info-row-value">
-                              <a 
-                                href={`mailto:${teacherEmail}`}
-                                style={{ 
-                                  color: '#5d3bea', 
-                                  textDecoration: 'none' 
-                                }}
-                              >
-                                {teacherEmail}
-                              </a>
-                            </div>
-                          </div>
-                          <div className="info-row">
-                            <div className="info-row-label">Eğitmen Kullanıcı Adı</div>
-                            <div className="info-row-value">{teacherUsername}</div>
-                          </div>
-                          <div className="info-row">
-                            <div className="info-row-label">Kayıt ID</div>
-                            <div className="info-row-value">#{enrollment.id}</div>
+                            <div className="info-row-label">E-posta</div>
+                            <div className="info-row-value">{teacher?.mail || '-'}</div>
                           </div>
                         </div>
                       </div>
 
-                      {/* SINAV BİLGİSİ */}
+                      {/* Sınavlar */}
                       <div className="detail-box" style={{ gridColumn: '1 / -1' }}>
                         <div className="detail-head">
                           <span>📝 Sınavlar</span>
+                          {exams.length > 0 && (
+                            <span className="small-pill">{exams.length} sınav</span>
+                          )}
                         </div>
-                        <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b6b84' }}>
-                          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📊</div>
-                          <p style={{ margin: '0.5rem 0', fontWeight: '600' }}>
-                            Sınav bilgileri için ayrı bir sistem geliştirilecek
-                          </p>
-                          <p style={{ fontSize: '0.9rem', margin: '0' }}>
-                            Sınavlara "Sınavlar" menüsünden erişebilirsiniz
-                          </p>
-                        </div>
+                        
+                        {isLoadingExams ? (
+                          <div style={{ padding: '1rem', textAlign: 'center', color: '#6b6b84' }}>
+                            Sınavlar yükleniyor...
+                          </div>
+                        ) : exams.length === 0 ? (
+                          <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b6b84' }}>
+                            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
+                            <p style={{ margin: 0 }}>Bu derse ait sınav bulunmuyor.</p>
+                          </div>
+                        ) : (
+                          <div className="exams-list">
+                            {exams.map(exam => {
+                              const result = getStudentExamResult(exam.id);
+                              const hasCompleted = !!result;
+                              const examResultsData = examResults[exam.id] || [];
+                              
+                              return (
+                                <div key={exam.id} className="exam-item">
+                                  <div className="exam-item-info">
+                                    <div className="exam-item-title">{exam.title}</div>
+                                    <div className="exam-item-meta">
+                                      <span>⏱️ {exam.durationMinutes} dk</span>
+                                      <span>📅 {formatDate(exam.createdAt)}</span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="exam-item-status">
+                                    {!isTeacher ? (
+                                      // Öğrenci görünümü
+                                      hasCompleted ? (
+                                        <div className="exam-completed">
+                                          <span className={`score ${parseFloat(result.score) >= 50 ? 'pass' : 'fail'}`}>
+                                            {parseFloat(result.score).toFixed(1)} Puan
+                                          </span>
+                                          <span className="completed-label">Tamamlandı</span>
+                                        </div>
+                                      ) : (
+                                        <button 
+                                          className="btn-join-exam"
+                                          onClick={() => joinExam(exam.id)}
+                                        >
+                                          Sınava Gir
+                                        </button>
+                                      )
+                                    ) : (
+                                      // Öğretmen görünümü
+                                      <div className="exam-teacher-stats">
+                                        <span className="participant-count">
+                                          {examResultsData.length} katılımcı
+                                        </span>
+                                        {examResultsData.length > 0 && (
+                                          <span className="avg-score">
+                                            Ort: {(examResultsData.reduce((sum, r) => sum + parseFloat(r.score), 0) / examResultsData.length).toFixed(1)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-
                     </div>
                   </section>
                 )}

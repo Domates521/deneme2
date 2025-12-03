@@ -1,4 +1,4 @@
-// DataAccess/HibernateDerslerDal.java
+// src/main/java/com/True_Learners/Learny/DataAccess/HibernateDerslerDal.java
 package com.True_Learners.Learny.DataAccess;
 
 import java.util.List;
@@ -12,6 +12,11 @@ import com.True_Learners.Learny.Entities.Course;
 
 import jakarta.persistence.EntityManager;
 
+/**
+ * HIBERNATE DERSLER DAL
+ * 
+ * Ders veritabanı işlemleri için Hibernate implementasyonu
+ */
 @Repository
 public class HibernateDerslerDal implements IDerslerDal {
 
@@ -58,8 +63,8 @@ public class HibernateDerslerDal implements IDerslerDal {
     @Transactional
     public List<Course> getByTeacherId(int teacherId) {
         Session session = entityManager.unwrap(Session.class);
-        return session.createQuery("from Course c where c.teacher.id = :teacherId", Course.class)
-                .setParameter("teacherId", teacherId)
+        return session.createQuery("from Course c where c.teacher.id = :tid", Course.class)
+                .setParameter("tid", teacherId)
                 .getResultList();
     }
 }

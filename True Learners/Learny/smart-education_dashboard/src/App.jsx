@@ -1,15 +1,15 @@
+// src/App.jsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-import Sidebar from './components/Sidebar';
-import Topbar from './components/Topbar';
-import DashboardMain from './components/DashboardMain';
-import DashboardSide from './components/DashboardSide';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import CoursesPage from './pages/CoursesPage';
 import DashboardPage from './pages/DashboardPage';
 import ExamPage from './pages/ExamPage';
+import ExamsPage from './pages/ExamsPage';
+import ExamCreatePage from './pages/ExamCreatePage';
+import ExamResultPage from './pages/ExamResultPage';
 import PrivateRoute from './components/PrivateRoute';
 
 /**
@@ -29,15 +29,13 @@ import PrivateRoute from './components/PrivateRoute';
  * PRIVATE ROUTES (giriş yapmış kullanıcılar için):
  * - /dashboard      -> DashboardPage
  * - /courses        -> CoursesPage
- * - /exam/:examId   -> ExamPage
+ * - /exams          -> ExamsPage (Sınav listesi)
+ * - /exam/create    -> ExamCreatePage (Sınav oluşturma - öğretmen)
+ * - /exam/:examId   -> ExamPage (Sınav çözme)
+ * - /exam-result/:resultId -> ExamResultPage (Sınav sonucu)
  * 
  * DEFAULT ROUTE:
  * - /               -> Login'se dashboard'a, değilse login'e yönlendir
- * 
- * NEDEN BÖYLE?
- * - Güvenlik: Private route'lar token olmadan erişilemez
- * - UX: Kullanıcı login'se login sayfasına gitmesin
- * - Mantık: Her route'un net bir amacı var
  */
 
 const App = () => {
@@ -85,7 +83,29 @@ const App = () => {
         } 
       />
       
-      {/* Exam Sayfası - Dynamic route (examId parametresi ile) */}
+      {/* ===== SINAV ROUTE'LARI ===== */}
+      
+      {/* Sınavlar Listesi Sayfası */}
+      <Route 
+        path="/exams" 
+        element={
+          <PrivateRoute>
+            <ExamsPage />
+          </PrivateRoute>
+        } 
+      />
+      
+      {/* Sınav Oluşturma Sayfası (Öğretmenler için) */}
+      <Route 
+        path="/exam/create" 
+        element={
+          <PrivateRoute>
+            <ExamCreatePage />
+          </PrivateRoute>
+        } 
+      />
+      
+      {/* Sınav Çözme Sayfası - Dynamic route (examId parametresi ile) */}
       <Route 
         path="/exam/:examId" 
         element={
@@ -94,29 +114,32 @@ const App = () => {
           </PrivateRoute>
         } 
       />
+      
+      {/* Sınav Sonuç Sayfası */}
+      <Route 
+        path="/exam-result/:resultId" 
+        element={
+          <PrivateRoute>
+            <ExamResultPage />
+          </PrivateRoute>
+        } 
+      />
 
       {/* DEFAULT ROUTE - Ana sayfa yönlendirmesi */}
       <Route 
         path="/" 
         element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+          isAuthenticated ? 
+            <Navigate to="/dashboard" replace /> : 
+            <Navigate to="/login" replace />
         } 
       />
 
-      {/* 404 - Bilinmeyen route'lar için */}
+      {/* 404 - Bulunamayan sayfalar */}
       <Route 
         path="*" 
         element={
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '100vh',
-            fontSize: '1.5rem',
-            color: '#6b6b84'
-          }}>
-            404 - Sayfa Bulunamadı
-          </div>
+          <Navigate to="/" replace />
         } 
       />
     </Routes>
