@@ -1,9 +1,22 @@
-// Business/ExamManager.java
 package com.True_Learners.Learny.Business;
 
-import com.True_Learners.Learny.DataAccess.*;
-import com.True_Learners.Learny.DTOs.*;
-import com.True_Learners.Learny.Entities.*;
+import com.True_Learners.Learny.DataAccess.IDerslerDal;
+import com.True_Learners.Learny.DataAccess.IKullanicilarDal;
+import com.True_Learners.Learny.DataAccess.IOgrenciSinavSonuclariDal;
+import com.True_Learners.Learny.DataAccess.ISeceneklerDal;
+import com.True_Learners.Learny.DataAccess.ISinavlarDal;
+import com.True_Learners.Learny.DataAccess.ISorularDal;
+import com.True_Learners.Learny.DTOs.ExamCreateDTO;
+import com.True_Learners.Learny.DTOs.ExamFullDTO;
+import com.True_Learners.Learny.DTOs.ExamResultDTO;
+import com.True_Learners.Learny.DTOs.ExamSubmissionDTO;
+import com.True_Learners.Learny.Entities.Course;
+import com.True_Learners.Learny.Entities.Exam;
+import com.True_Learners.Learny.Entities.ExamResult;
+import com.True_Learners.Learny.Entities.Option;
+import com.True_Learners.Learny.Entities.Question;
+import com.True_Learners.Learny.Entities.User;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,20 +29,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * EXAM MANAGER
- * 
- * Sınav işlemlerinin business logic implementasyonu
- * 
- * KATMAN MİMARİSİ:
- * Controller -> ExamManager (Business) -> Dal (Data Access) -> Database
- * 
- * DEPENDENCY INJECTION:
- * - ISinavlarDal: Sınav veritabanı işlemleri
- * - ISorularDal: Soru veritabanı işlemleri
- * - ISeceneklerDal: Seçenek veritabanı işlemleri
- * - IOgrenciSinavSonuclariDal: Sonuç veritabanı işlemleri
- * - IDerslerDal: Ders veritabanı işlemleri
- * - IKullanicilarDal: Kullanıcı veritabanı işlemleri
+ * EXAM MANAGER - DÜZELTİLMİŞ VERSİYON
  */
 @Service
 public class ExamManager implements IExamService {
@@ -52,8 +52,6 @@ public class ExamManager implements IExamService {
         this.derslerDal = derslerDal;
         this.kullanicilarDal = kullanicilarDal;
     }
-    
-    // ========== TEMEL CRUD İŞLEMLERİ ==========
     
     @Override
     @Transactional
@@ -91,47 +89,36 @@ public class ExamManager implements IExamService {
         return sinavlarDal.getByCourseId(courseId);
     }
     
-    // ========== SINAV DETAYLARI (FULL) ==========
-    
-    /**
-     * Sınav detaylarını sorular ve seçeneklerle birlikte getir
-     * 
-     * AKIŞ:
-     * 1. Sınav bilgilerini al
-     * 2. Sınavın tüm sorularını al
-     * 3. Her sorunun seçeneklerini al
-     * 4. DTO'ya dönüştür (GÜVENLİK: Doğru cevap bilgisi GÖNDERİLMEZ)
-     * 5. Frontend'e döndür
-     */
     @Override
     @Transactional
     public ExamFullDTO getExamWithFullDetails(int examId) {
-        // 1. Sınav bilgilerini al
         Exam exam = sinavlarDal.getById(examId);
         if (exam == null) {
             throw new RuntimeException("Sınav bulunamadı: ID = " + examId);
         }
         
-        // 2. Sınavın tüm sorularını al
         List<Question> questions = sorularDal.getByExamId(examId);
+        if (questions == null || questions.isEmpty()) {
+            throw new RuntimeException("Bu sınava ait soru bulunamadı: Exam ID = " + examId);
+        }
         
-        // 3. Her soru için seçenekleri al ve DTO'ya dönüştür
         List<ExamFullDTO.QuestionDTO> questionDTOs = new ArrayList<>();
         
         for (Question question : questions) {
-            // Sorunun seçeneklerini al
             List<Option> options = seceneklerDal.getByQuestionId(question.getId());
             
-            // Seçenekleri DTO'ya dönüştür (DOĞRU BİLGİSİ GÖNDERİLMEZ!)
+            if (options == null || options.isEmpty()) {
+                System.err.println("UYARI: Soru ID " + question.getId() + " için seçenek bulunamadı!");
+                options = new ArrayList<>();
+            }
+            
             List<ExamFullDTO.OptionDTO> optionDTOs = options.stream()
                 .map(option -> new ExamFullDTO.OptionDTO(
                     option.getId(),
                     option.getText()
-                    // isCorrect bilgisi BURADA YOK!
                 ))
                 .collect(Collectors.toList());
             
-            // Soru DTO'su oluştur
             ExamFullDTO.QuestionDTO questionDTO = new ExamFullDTO.QuestionDTO(
                 question.getId(),
                 question.getText(),
@@ -142,7 +129,6 @@ public class ExamManager implements IExamService {
             questionDTOs.add(questionDTO);
         }
         
-        // 4. Sınav DTO'su oluştur
         ExamFullDTO examFullDTO = new ExamFullDTO(
             exam.getId(),
             exam.getTitle(),
@@ -157,37 +143,24 @@ public class ExamManager implements IExamService {
         return examFullDTO;
     }
     
-    // ========== SINAV PUANLAMA VE KAYDETME ==========
-    
-    /**
-     * Sınavı puanla ve sonucu kaydet
-     * 
-     * AKIŞ:
-     * 1. Sınav ve soruları al
-     * 2. Her sorunun doğru cevabını bul
-     * 3. Öğrencinin cevaplarıyla karşılaştır
-     * 4. Puanı hesapla (doğru sayısı / toplam soru * 100)
-     * 5. Sonucu veritabanına kaydet
-     * 6. Detaylı sonuç DTO'sunu döndür
-     */
     @Override
     @Transactional
     public ExamResultDTO submitExamAndCalculateScore(ExamSubmissionDTO submission) {
-        // 1. Sınav ve öğrenci bilgilerini al
         Exam exam = sinavlarDal.getById(submission.getExamId());
         User student = kullanicilarDal.getById(submission.getStudentId());
         
         if (exam == null) {
-            throw new RuntimeException("Sınav bulunamadı");
+            throw new RuntimeException("Sınav bulunamadı: ID = " + submission.getExamId());
         }
         if (student == null) {
-            throw new RuntimeException("Öğrenci bulunamadı");
+            throw new RuntimeException("Öğrenci bulunamadı: ID = " + submission.getStudentId());
         }
         
-        // 2. Sınavın tüm sorularını al
         List<Question> questions = sorularDal.getByExamId(submission.getExamId());
+        if (questions == null || questions.isEmpty()) {
+            throw new RuntimeException("Bu sınava ait soru bulunamadı");
+        }
         
-        // 3. Her soru için puanlama yap
         int totalQuestions = questions.size();
         int correctAnswers = 0;
         int wrongAnswers = 0;
@@ -196,63 +169,50 @@ public class ExamManager implements IExamService {
         List<ExamResultDTO.QuestionResultDTO> questionResults = new ArrayList<>();
         
         for (Question question : questions) {
-            // Sorunun doğru cevap(lar)ını bul
-            List<Option> allOptions = seceneklerDal.getByQuestionId(question.getId());
-            List<Integer> correctOptionIds = allOptions.stream()
+            List<Option> options = seceneklerDal.getByQuestionId(question.getId());
+            List<Integer> correctOptionIds = options.stream()
                 .filter(Option::isCorrect)
                 .map(Option::getId)
                 .collect(Collectors.toList());
             
-            // Öğrencinin bu soruya verdiği cevabı bul
             ExamSubmissionDTO.AnswerDTO studentAnswer = submission.getAnswers().stream()
-                .filter(answer -> answer.getQuestionId() == question.getId())
+                .filter(ans -> ans.getQuestionId() == question.getId())
                 .findFirst()
                 .orElse(null);
             
             boolean isCorrect = false;
-            String studentAnswerText = "Boş";
+            boolean isEmpty = false;
             
-            if (studentAnswer != null && !studentAnswer.getSelectedOptionIds().isEmpty()) {
-                List<Integer> studentOptionIds = studentAnswer.getSelectedOptionIds();
-                
-                // Cevap kontrolü: Öğrencinin seçtikleri = Doğru cevaplar
-                isCorrect = correctOptionIds.size() == studentOptionIds.size() &&
-                           correctOptionIds.containsAll(studentOptionIds);
-                
-                // Öğrencinin cevap metnini al
-                studentAnswerText = allOptions.stream()
-                    .filter(opt -> studentOptionIds.contains(opt.getId()))
-                    .map(Option::getText)
-                    .collect(Collectors.joining(", "));
-            } else {
+            if (studentAnswer == null || studentAnswer.getSelectedOptionIds() == null || 
+                studentAnswer.getSelectedOptionIds().isEmpty()) {
+                isEmpty = true;
                 emptyAnswers++;
+            } else {
+                List<Integer> selectedIds = studentAnswer.getSelectedOptionIds();
+                isCorrect = selectedIds.size() == correctOptionIds.size() &&
+                           selectedIds.containsAll(correctOptionIds) &&
+                           correctOptionIds.containsAll(selectedIds);
+                
+                if (isCorrect) {
+                    correctAnswers++;
+                } else {
+                    wrongAnswers++;
+                }
             }
             
-            if (isCorrect) {
-                correctAnswers++;
-            } else if (studentAnswer != null && !studentAnswer.getSelectedOptionIds().isEmpty()) {
-                wrongAnswers++;
-            }
-            
-            // Doğru cevap metnini al
-            String correctAnswerText = allOptions.stream()
-                .filter(Option::isCorrect)
-                .map(Option::getText)
-                .collect(Collectors.joining(", "));
-            
-            // Soru sonucu DTO'su oluştur
             ExamResultDTO.QuestionResultDTO questionResult = new ExamResultDTO.QuestionResultDTO(
                 question.getId(),
                 question.getText(),
+                question.getType().toString(),
+                studentAnswer != null ? studentAnswer.getSelectedOptionIds() : new ArrayList<>(),
+                correctOptionIds,
                 isCorrect,
-                studentAnswerText,
-                correctAnswerText
+                isEmpty
             );
             
             questionResults.add(questionResult);
         }
         
-        // 4. Puanı hesapla (0-100 arası)
         BigDecimal score = BigDecimal.ZERO;
         if (totalQuestions > 0) {
             score = BigDecimal.valueOf(correctAnswers)
@@ -260,7 +220,6 @@ public class ExamManager implements IExamService {
                 .divide(BigDecimal.valueOf(totalQuestions), 2, RoundingMode.HALF_UP);
         }
         
-        // 5. Sonucu veritabanına kaydet
         ExamResult examResult = new ExamResult();
         examResult.setExam(exam);
         examResult.setStudent(student);
@@ -269,7 +228,6 @@ public class ExamManager implements IExamService {
         
         sonuclarDal.add(examResult);
         
-        // 6. Sonuç DTO'sunu oluştur ve döndür
         ExamResultDTO resultDTO = new ExamResultDTO(
             examResult.getId(),
             exam.getId(),
@@ -288,29 +246,14 @@ public class ExamManager implements IExamService {
         return resultDTO;
     }
     
-    // ========== YENİ SINAV OLUŞTURMA ==========
-    
-    /**
-     * Yeni sınav oluştur (sorular ve seçenekler dahil)
-     * 
-     * AKIŞ:
-     * 1. Sınav entity'si oluştur ve kaydet
-     * 2. Her soru için:
-     *    - Soru entity'si oluştur ve kaydet
-     *    - Her seçenek için:
-     *      - Seçenek entity'si oluştur ve kaydet
-     * 3. Oluşturulan sınav ID'sini döndür
-     */
     @Override
     @Transactional
     public int createExamWithQuestions(ExamCreateDTO examCreateDTO) {
-        // 1. Dersi al
         Course course = derslerDal.getById(examCreateDTO.getCourseId());
         if (course == null) {
-            throw new RuntimeException("Ders bulunamadı");
+            throw new RuntimeException("Ders bulunamadı: ID = " + examCreateDTO.getCourseId());
         }
         
-        // 2. Sınav entity'si oluştur
         Exam exam = new Exam();
         exam.setCourse(course);
         exam.setTitle(examCreateDTO.getTitle());
@@ -318,38 +261,56 @@ public class ExamManager implements IExamService {
         exam.setDurationMinutes(examCreateDTO.getDurationMinutes());
         exam.setCreatedAt(LocalDateTime.now());
         
-        // Sınavı kaydet
         sinavlarDal.add(exam);
+        System.out.println("✅ Sınav oluşturuldu: ID = " + exam.getId());
         
-        // 3. Soruları ve seçenekleri ekle
+        if (examCreateDTO.getQuestions() == null || examCreateDTO.getQuestions().isEmpty()) {
+            throw new RuntimeException("En az bir soru eklemelisiniz");
+        }
+        
         for (ExamCreateDTO.QuestionCreateDTO questionDTO : examCreateDTO.getQuestions()) {
-            // Soru entity'si oluştur
             Question question = new Question();
             question.setExam(exam);
             question.setText(questionDTO.getText());
             
-            // Soru tipini enum'a dönüştür
             try {
                 question.setType(Question.QuestionType.valueOf(questionDTO.getType()));
             } catch (IllegalArgumentException e) {
-                throw new RuntimeException("Geçersiz soru tipi: " + questionDTO.getType());
+                throw new RuntimeException("Geçersiz soru tipi: " + questionDTO.getType() + 
+                                         ". Geçerli tipler: CoktanSecmeli, DogruYanlis");
             }
             
-            // Soruyu kaydet
             sorularDal.add(question);
+            System.out.println("  ✅ Soru eklendi: ID = " + question.getId() + ", Tip = " + question.getType());
             
-            // 4. Seçenekleri ekle
+            if (questionDTO.getOptions() == null || questionDTO.getOptions().isEmpty()) {
+                throw new RuntimeException("Her soru için en az bir seçenek gereklidir");
+            }
+            
+            boolean hasCorrectOption = false;
+            
             for (ExamCreateDTO.OptionCreateDTO optionDTO : questionDTO.getOptions()) {
                 Option option = new Option();
                 option.setQuestion(question);
                 option.setText(optionDTO.getText());
                 option.setCorrect(optionDTO.getIsCorrect());
                 
-                // Seçeneği kaydet
+                if (optionDTO.getIsCorrect()) {
+                    hasCorrectOption = true;
+                }
+                
                 seceneklerDal.add(option);
+                System.out.println("    ✅ Seçenek eklendi: ID = " + option.getId() + 
+                                 ", Doğru = " + option.isCorrect());
+            }
+            
+            if (!hasCorrectOption) {
+                throw new RuntimeException("Soru '" + questionDTO.getText() + 
+                                         "' için en az bir doğru cevap işaretlenmelidir");
             }
         }
         
+        System.out.println("🎉 Sınav ve tüm sorular başarıyla oluşturuldu!");
         return exam.getId();
     }
 }

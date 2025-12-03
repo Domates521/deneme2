@@ -188,7 +188,12 @@ public class ExamResultDTO {
             this.correctAnswer = correctAnswer;
         }
         
-        // Getters and Setters
+        public QuestionResultDTO(int id, String text, String string, Object object, List<Integer> correctOptionIds,
+				boolean isCorrect2, boolean isEmpty) {
+			// TODO Auto-generated constructor stub
+		}
+
+		// Getters and Setters
         public int getQuestionId() {
             return questionId;
         }

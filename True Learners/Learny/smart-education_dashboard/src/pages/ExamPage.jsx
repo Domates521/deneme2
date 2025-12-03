@@ -1,4 +1,4 @@
-// src/pages/ExamPage.jsx
+// src/pages/ExamPage.jsx - DÜZELTİLMİŞ VERSİYON
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getExamFull, submitExam } from "../api/examApi";
@@ -8,6 +8,11 @@ import "./ExamPage.css";
 /**
  * EXAM PAGE - Öğrenci Sınav Alma Sayfası
  * 
+ * DÜZELTİLEN SORUNLAR:
+ * 1. Sorular görünmüyordu -> Düzgün render eklendi
+ * 2. Seçenekler boştu -> options kontrolü düzeltildi
+ * 3. DogruYanlis soruları için özel render yoktu -> Eklendi
+ * 
  * BACKEND'DEN GELEN VERİ YAPISI (ExamFullDTO):
  * {
  *   examId, title, description, durationMinutes, courseName,
@@ -15,7 +20,7 @@ import "./ExamPage.css";
  *     {
  *       questionId,
  *       text,
- *       type,
+ *       type, // "CoktanSecmeli" veya "DogruYanlis"
  *       options: [{ optionId, text }, ...]
  *     }
  *   ]
@@ -107,10 +112,21 @@ function ExamPage() {
         throw new Error("Bu sınavda soru bulunmuyor");
       }
 
-      // Her sorunun options'ını kontrol et
+      // Her sorunun options'ını kontrol et ve logla
       data.questions.forEach((q, idx) => {
-        console.log(`Soru ${idx + 1}:`, q.questionId, q.text);
-        console.log(`  Options:`, q.options);
+        console.log(`Soru ${idx + 1}:`, {
+          questionId: q.questionId,
+          text: q.text,
+          type: q.type,
+          optionsCount: q.options ? q.options.length : 0,
+          options: q.options
+        });
+
+        // Eğer options null veya undefined ise boş array yap
+        if (!q.options || !Array.isArray(q.options)) {
+          console.warn(`⚠️ Soru ${idx + 1} (ID: ${q.questionId}) için seçenekler boş! Boş array atanıyor.`);
+          q.options = [];
+        }
       });
       
       setExamData(data);
@@ -121,7 +137,6 @@ function ExamPage() {
       // Cevapları initialize et (boş)
       const initialAnswers = {};
       data.questions.forEach((q) => {
-        // Backend'den questionId geliyor
         initialAnswers[q.questionId] = [];
       });
       setAnswers(initialAnswers);
@@ -195,13 +210,6 @@ function ExamPage() {
   };
 
   /**
-   * Belirli bir soruya git
-   */
-  const goToQuestion = (index) => {
-    setCurrentQuestionIndex(index);
-  };
-
-  /**
    * Süreyi formatla (MM:SS)
    */
   const formatTime = (seconds) => {
@@ -211,7 +219,7 @@ function ExamPage() {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
-  // LOADING
+  // ========== RENDER: LOADING ==========
   if (loading) {
     return (
       <div className="exam-page-loading">
@@ -221,7 +229,7 @@ function ExamPage() {
     );
   }
 
-  // ERROR
+  // ========== RENDER: ERROR ==========
   if (error) {
     return (
       <div className="exam-page-error">
@@ -231,7 +239,7 @@ function ExamPage() {
     );
   }
 
-  // SINAV VERİLERİ YOK
+  // ========== RENDER: SINAV VERİLERİ YOK ==========
   if (!examData || !examData.questions || examData.questions.length === 0) {
     return (
       <div className="exam-page-error">
@@ -254,9 +262,14 @@ function ExamPage() {
     );
   }
 
-  // Seçenekler kontrolü
+  // Seçenekler kontrolü - boş array olsa bile devam et
   const currentOptions = currentQuestion.options || [];
+  
+  // Soru tipi kontrolü
+  const isDogruYanlis = currentQuestion.type === "DogruYanlis";
+  const isCoktanSecmeli = currentQuestion.type === "CoktanSecmeli";
 
+  // ========== ANA RENDER ==========
   return (
     <div className="exam-page">
       {/* HEADER */}
@@ -287,14 +300,12 @@ function ExamPage() {
 
       {/* SINAV İÇERİĞİ */}
       <div className="exam-content">
-        {/* SORU */}
+        {/* SORU KARTI */}
         <div className="question-card">
           <div className="question-header">
             <span className="question-number">Soru {currentQuestionIndex + 1}</span>
             <span className="question-type">
-              {currentQuestion.type === "CoktanSecmeli"
-                ? "Çoktan Seçmeli"
-                : "Doğru / Yanlış"}
+              {isDogruYanlis ? "Doğru / Yanlış" : "Çoktan Seçmeli"}
             </span>
           </div>
 
@@ -312,24 +323,43 @@ function ExamPage() {
                 return (
                   <div
                     key={option.optionId}
-                    className={`option-item ${isSelected ? "selected" : ""}`}
+                    className={`option-item ${isSelected ? "selected" : ""} ${
+                      isDogruYanlis ? "dogru-yanlis-option" : ""
+                    }`}
                     onClick={() =>
                       handleAnswerSelect(currentQuestion.questionId, option.optionId)
                     }
                   >
-                    <div className="option-letter">
-                      {String.fromCharCode(65 + index)}
-                    </div>
-                    <div className="option-text">{option.text}</div>
-                    <div className="option-check">
-                      {isSelected && <span>✓</span>}
-                    </div>
+                    {/* DOĞRU/YANLIŞ İÇİN ÖZEL RENDER */}
+                    {isDogruYanlis ? (
+                      <>
+                        <div className="dy-icon">
+                          {option.text === "Doğru" || option.text === "True" ? "✓" : "✗"}
+                        </div>
+                        <div className="dy-text">{option.text}</div>
+                      </>
+                    ) : (
+                      /* ÇOKTAN SEÇMELİ İÇİN RENDER */
+                      <>
+                        <div className="option-letter">
+                          {String.fromCharCode(65 + index)}
+                        </div>
+                        <div className="option-text">{option.text}</div>
+                        <div className="option-check">
+                          {isSelected && <span>✓</span>}
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })
             ) : (
+              /* SEÇENEK BULUNAMADI UYARISI */
               <div className="no-options">
                 <p>⚠️ Bu soru için seçenek bulunamadı.</p>
+                <p style={{ fontSize: "0.9rem", color: "#6b6b84", marginTop: "0.5rem" }}>
+                  Lütfen öğretmeninize veya sistem yöneticisine bildirin.
+                </p>
               </div>
             )}
           </div>
@@ -351,46 +381,49 @@ function ExamPage() {
               onClick={() => handleSubmitExam(false)}
               disabled={submitting}
             >
-              {submitting ? "Gönderiliyor..." : "Sınavı Bitir ✓"}
+              {submitting ? "Gönderiliyor..." : "Sınavı Bitir"}
             </button>
           ) : (
-            <button className="nav-btn next-btn" onClick={handleNextQuestion}>
+            <button
+              className="nav-btn next-btn"
+              onClick={handleNextQuestion}
+            >
               Sonraki Soru →
             </button>
           )}
         </div>
 
-        {/* SORU HARİTASI */}
-        <div className="question-map">
-          <h3>Sorular</h3>
-          <div className="question-map-grid">
-            {examData.questions.map((q, index) => {
-              // Backend'den questionId geliyor
-              const answered = answers[q.questionId]?.length > 0;
-              const isCurrent = index === currentQuestionIndex;
+        {/* SORU PALETİ (Tüm soruları göster) */}
+        <div className="question-palette">
+          <h4>Sorular</h4>
+          <div className="palette-grid">
+            {examData.questions.map((q, idx) => {
+              const isAnswered = answers[q.questionId] && answers[q.questionId].length > 0;
+              const isCurrent = idx === currentQuestionIndex;
 
               return (
-                <div
+                <button
                   key={q.questionId}
-                  className={`question-map-item ${isCurrent ? "current" : ""} ${
-                    answered ? "answered" : ""
+                  className={`palette-item ${isCurrent ? "current" : ""} ${
+                    isAnswered ? "answered" : ""
                   }`}
-                  onClick={() => goToQuestion(index)}
+                  onClick={() => setCurrentQuestionIndex(idx)}
                 >
-                  {index + 1}
-                </div>
+                  {idx + 1}
+                </button>
               );
             })}
           </div>
-
-          <div className="question-map-legend">
-            <div className="legend-item">
-              <div className="legend-box answered"></div>
-              <span>Cevaplandı</span>
+          
+          {/* İSTATİSTİKLER */}
+          <div className="palette-stats">
+            <div className="stat-item">
+              <span className="stat-icon answered">●</span>
+              <span>Cevaplanan: {Object.values(answers).filter(a => a.length > 0).length}</span>
             </div>
-            <div className="legend-item">
-              <div className="legend-box unanswered"></div>
-              <span>Cevaplanmadı</span>
+            <div className="stat-item">
+              <span className="stat-icon unanswered">○</span>
+              <span>Boş: {examData.questions.length - Object.values(answers).filter(a => a.length > 0).length}</span>
             </div>
           </div>
         </div>
