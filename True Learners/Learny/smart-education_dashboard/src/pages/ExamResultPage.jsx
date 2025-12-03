@@ -7,11 +7,21 @@ import './ExamResultPage.css';
 /**
  * EXAM RESULT PAGE - Sınav Sonuç Sayfası
  * 
- * ÖZELLİKLER:
- * - Sınav sonucunu detaylı gösterir
- * - Puan, doğru/yanlış/boş sayıları
- * - Her soru için sonuç detayı
- * - Başarı durumuna göre görsel feedback
+ * BACKEND'DEN GELEN VERİ YAPISI (ExamResultDTO):
+ * {
+ *   resultId, examId, examTitle, studentId, studentName,
+ *   score, totalQuestions, correctAnswers, wrongAnswers, emptyAnswers,
+ *   finishedAt,
+ *   questionResults: [
+ *     {
+ *       questionId,
+ *       questionText,
+ *       correct (boolean) - Java'da isCorrect(), JSON'da "correct" olarak gelir
+ *       studentAnswer,    // Öğrencinin cevap metni (String)
+ *       correctAnswer     // Doğru cevap metni (String)
+ *     }
+ *   ]
+ * }
  */
 
 const ExamResultPage = () => {
@@ -21,6 +31,8 @@ const ExamResultPage = () => {
   
   // Sonuç verisi ExamPage'den geliyor
   const result = location.state?.result;
+
+  console.log("📊 Sonuç verisi:", JSON.stringify(result, null, 2));
 
   // Sonuç yoksa geri yönlendir
   if (!result) {
@@ -38,12 +50,13 @@ const ExamResultPage = () => {
     );
   }
 
-  const score = parseFloat(result.score);
+  const score = parseFloat(result.score) || 0;
   const isPassed = score >= 50;
   const totalQuestions = result.totalQuestions || 0;
   const correctAnswers = result.correctAnswers || 0;
   const wrongAnswers = result.wrongAnswers || 0;
   const emptyAnswers = result.emptyAnswers || 0;
+  const questionResults = result.questionResults || [];
 
   /**
    * Puan dairesinin renk gradyanı
@@ -63,6 +76,30 @@ const ExamResultPage = () => {
     if (score >= 70) return { emoji: '👏', text: 'İyi! Güzel bir çalışma!' };
     if (score >= 50) return { emoji: '✅', text: 'Geçer Not! Biraz daha çalışabilirsin.' };
     return { emoji: '📚', text: 'Tekrar Çalış! Bir sonraki sınavda başarılı olacaksın.' };
+  };
+
+  /**
+   * Soru sonucu durumunu belirle
+   * 
+   * Java'da boolean için isCorrect() getter'ı kullanıldığında,
+   * Jackson JSON serializasyonu "correct" olarak gönderir.
+   * Ama bazen "isCorrect" olarak da gelebilir.
+   */
+  const getQuestionStatus = (qr) => {
+    // Her iki olasılığı da kontrol et: "correct" veya "isCorrect"
+    const isCorrectValue = qr.correct !== undefined ? qr.correct : qr.isCorrect;
+    const isCorrect = isCorrectValue === true;
+    
+    // Boş cevap kontrolü
+    const studentAns = qr.studentAnswer;
+    const isEmpty = !studentAns || 
+                    studentAns === "Boş" || 
+                    studentAns.trim() === "" ||
+                    studentAns === null;
+    
+    console.log(`Soru ${qr.questionId}: correct=${qr.correct}, isCorrect=${qr.isCorrect}, hesaplanan=${isCorrect}, boş=${isEmpty}`);
+    
+    return { isCorrect, isEmpty };
   };
 
   const resultMessage = getResultMessage();
@@ -121,18 +158,22 @@ const ExamResultPage = () => {
         {/* Progress Bar */}
         <div className="progress-section">
           <div className="progress-bar">
-            <div 
-              className="progress-correct" 
-              style={{ width: `${(correctAnswers / totalQuestions) * 100}%` }}
-            ></div>
-            <div 
-              className="progress-wrong" 
-              style={{ width: `${(wrongAnswers / totalQuestions) * 100}%` }}
-            ></div>
-            <div 
-              className="progress-empty" 
-              style={{ width: `${(emptyAnswers / totalQuestions) * 100}%` }}
-            ></div>
+            {totalQuestions > 0 && (
+              <>
+                <div 
+                  className="progress-correct" 
+                  style={{ width: `${(correctAnswers / totalQuestions) * 100}%` }}
+                ></div>
+                <div 
+                  className="progress-wrong" 
+                  style={{ width: `${(wrongAnswers / totalQuestions) * 100}%` }}
+                ></div>
+                <div 
+                  className="progress-empty" 
+                  style={{ width: `${(emptyAnswers / totalQuestions) * 100}%` }}
+                ></div>
+              </>
+            )}
           </div>
           <div className="progress-legend">
             <span className="legend-item correct">
@@ -148,46 +189,63 @@ const ExamResultPage = () => {
         </div>
 
         {/* Question Results */}
-        {result.questionResults && result.questionResults.length > 0 && (
+        {questionResults.length > 0 && (
           <div className="questions-section">
             <h2 className="section-title">Soru Detayları</h2>
             <div className="question-results-list">
-              {result.questionResults.map((qr, index) => (
-                <div 
-                  key={index} 
-                  className={`question-result-item ${
-                    qr.correct ? 'correct' : qr.empty ? 'empty' : 'wrong'
-                  }`}
-                >
-                  <div className="question-result-header">
-                    <span className="question-num">Soru {index + 1}</span>
-                    <span className={`question-status ${
-                      qr.correct ? 'correct' : qr.empty ? 'empty' : 'wrong'
-                    }`}>
-                      {qr.correct ? '✓ Doğru' : qr.empty ? '○ Boş' : '✗ Yanlış'}
-                    </span>
-                  </div>
-                  
-                  <p className="question-text">{qr.questionText}</p>
-                  
-                  <div className="question-answer-info">
-                    {!qr.empty && (
-                      <div className="your-answer">
-                        <span className="label">Senin cevabın:</span>
-                        <span className={`answer ${qr.correct ? 'correct' : 'wrong'}`}>
-                          {qr.selectedOptionText || '-'}
-                        </span>
+              {questionResults.map((qr, index) => {
+                const { isCorrect, isEmpty } = getQuestionStatus(qr);
+                
+                // Durum sınıfını belirle
+                let statusClass = 'wrong';
+                let statusText = '✗ Yanlış';
+                
+                if (isCorrect) {
+                  statusClass = 'correct';
+                  statusText = '✓ Doğru';
+                } else if (isEmpty) {
+                  statusClass = 'empty';
+                  statusText = '○ Boş';
+                }
+
+                return (
+                  <div 
+                    key={qr.questionId || index} 
+                    className={`question-result-item ${statusClass}`}
+                  >
+                    <div className="question-result-header">
+                      <span className="question-num">Soru {index + 1}</span>
+                      <span className={`question-status ${statusClass}`}>
+                        {statusText}
+                      </span>
+                    </div>
+                    
+                    <p className="question-text">{qr.questionText}</p>
+                    
+                    <div className="question-answer-info">
+                      {/* Öğrencinin cevabı */}
+                      <div className="answer-row">
+                        <span className="answer-label">Senin cevabın:</span>
+                        {isEmpty ? (
+                          <span className="answer-value empty-answer">Boş bırakıldı</span>
+                        ) : (
+                          <span className={`answer-value ${isCorrect ? 'correct' : 'wrong'}`}>
+                            {qr.studentAnswer}
+                          </span>
+                        )}
                       </div>
-                    )}
-                    {!qr.correct && (
-                      <div className="correct-answer">
-                        <span className="label">Doğru cevap:</span>
-                        <span className="answer correct">{qr.correctOptionText}</span>
-                      </div>
-                    )}
+                      
+                      {/* Yanlış veya boşsa doğru cevabı göster */}
+                      {!isCorrect && (
+                        <div className="answer-row">
+                          <span className="answer-label">Doğru cevap:</span>
+                          <span className="answer-value correct">{qr.correctAnswer}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -203,9 +261,11 @@ const ExamResultPage = () => {
         </div>
 
         {/* Timestamp */}
-        <div className="result-timestamp">
-          Tamamlanma: {new Date(result.finishedAt).toLocaleString('tr-TR')}
-        </div>
+        {result.finishedAt && (
+          <div className="result-timestamp">
+            Tamamlanma: {new Date(result.finishedAt).toLocaleString('tr-TR')}
+          </div>
+        )}
       </div>
     </div>
   );
